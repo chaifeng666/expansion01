@@ -38,7 +38,7 @@
             }
             /* Force exact sizing for receipt borders during printing */
             .receipt-table td {
-                border: 1px solid #000000 !important;
+                border: 1.5px solid #000000 !important;
             }
         }
         
@@ -70,13 +70,10 @@
                 </div>
                 <div>
                     <h1 class="text-xl font-bold tracking-tight">社團法人中華民國資訊聯盟協進會</h1>
-                    <p class="text-xs text-indigo-200">領據線上填寫 & 試算表自動寫入系統</p>
+                    <p class="text-xs text-indigo-200">領據線上簽署與雲端自動同步系統</p>
                 </div>
             </div>
             <div class="flex gap-2">
-                <button onclick="toggleSettingsModal()" class="bg-indigo-600 hover:bg-indigo-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200 flex items-center gap-2 shadow-sm">
-                    <i class="fa-solid fa-gear"></i> Google 試算表設定
-                </button>
                 <button onclick="printReceipt()" class="bg-emerald-600 hover:bg-emerald-500 text-white px-4 py-2 rounded-lg text-sm font-medium transition duration-200 flex items-center gap-2 shadow-sm">
                     <i class="fa-solid fa-print"></i> 列印 / 匯出 PDF
                 </button>
@@ -150,8 +147,9 @@
                         <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1" for="idNumber">身分證/護照字號 <span class="text-red-500">*</span></label>
-                                <input type="text" id="idNumber" oninput="updatePreview()" placeholder="A123456789" required
+                                <input type="text" id="idNumber" oninput="handleIdInput()" placeholder="A123456789" required
                                     class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase">
+                                <p id="idValidationMsg" class="text-xs mt-1 font-medium text-slate-400">※ 必填。外籍委員請輸入護照號碼。</p>
                             </div>
                             <div>
                                 <label class="block text-sm font-medium text-slate-700 mb-1" for="phone">連絡電話 <span class="text-red-500">*</span></label>
@@ -325,123 +323,16 @@
 
     </main>
 
-    <!-- Google Sheets Settings Modal (No-Print) -->
-    <div id="settingsModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden no-print">
-        <div class="bg-white rounded-2xl max-w-2xl w-full shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
-            <!-- Modal Header -->
-            <div class="bg-indigo-900 text-white px-6 py-4 flex justify-between items-center">
-                <div class="flex items-center gap-2">
-                    <i class="fa-solid fa-cloud"></i>
-                    <h3 class="font-semibold text-lg">Google 試算表串接指南 & 設定</h3>
-                </div>
-                <button onclick="toggleSettingsModal()" class="text-indigo-200 hover:text-white transition">
-                    <i class="fa-solid fa-xmark text-xl"></i>
-                </button>
-            </div>
-            
-            <!-- Modal Content (Scrollable) -->
-            <div class="p-6 overflow-y-auto space-y-6 text-sm text-slate-600 leading-relaxed">
-                <!-- Instruction Steps -->
-                <div>
-                    <h4 class="font-bold text-slate-950 flex items-center gap-2 mb-2">
-                        <span class="bg-indigo-100 text-indigo-700 rounded-full w-5 h-5 inline-flex items-center justify-center text-xs">1</span>
-                        步驟 1：建立 Google 試算表與部署 Apps Script
-                    </h4>
-                    <p class="mb-3">請至您的 Google 雲端硬碟新建一個試算表，點擊選單的 <strong>「擴充功能」 -> 「Apps Script」</strong>，並將下列程式碼完整複製並覆蓋取代：</p>
-                    
-                    <div class="relative bg-slate-900 text-slate-200 p-4 rounded-xl font-mono text-xs overflow-x-auto max-h-[220px]">
-                        <button onclick="copyAppsScriptCode()" class="absolute right-3 top-3 bg-slate-800 hover:bg-slate-700 text-white px-2 py-1 rounded border border-slate-700 transition flex items-center gap-1">
-                            <i class="fa-regular fa-copy"></i> 複製程式碼
-                        </button>
-                        <pre id="codeBlock">
-/* Google Apps Script 接收端 */
-function doPost(e) {
-  try {
-    var sheet = SpreadsheetApp.getActiveSpreadsheet().getActiveSheet();
-    var data = JSON.parse(e.postData.contents);
-    
-    // 檢查標題列，如果是空表則自動建立
-    if (sheet.getLastRow() === 0) {
-      sheet.appendRow([
-        "時間戳記", "領款人", "出席費", "交通費", "合計金額", 
-        "身分證字號", "連絡電話", "戶籍住址", "日期", "簽名(Base64)"
-      ]);
-    }
-    
-    // 寫入資料
-    sheet.appendRow([
-      new Date(),
-      data.payeeName,
-      data.attendanceFee,
-      data.transportFee,
-      data.totalFee,
-      data.idNumber,
-      data.phone,
-      data.address,
-      data.dateStr,
-      data.signature
-    ]);
-    
-    return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader("Access-Control-Allow-Origin", "*");
-      
-  } catch(err) {
-    return ContentService.createTextOutput(JSON.stringify({ status: "error", message: err.toString() }))
-      .setMimeType(ContentService.MimeType.JSON)
-      .setHeader("Access-Control-Allow-Origin", "*");
-  }
-}</pre>
-                    </div>
-                </div>
-
-                <div>
-                    <h4 class="font-bold text-slate-950 flex items-center gap-2 mb-2">
-                        <span class="bg-indigo-100 text-indigo-700 rounded-full w-5 h-5 inline-flex items-center justify-center text-xs">2</span>
-                        步驟 2：部署為網頁應用程式
-                    </h4>
-                    <p>在 Apps Script 編輯器右上角點擊<strong>「部署」 -> 「新增部署」</strong>：</p>
-                    <ul class="list-disc list-inside pl-2 space-y-1 mt-1 text-slate-600">
-                        <li>選取類型：<strong>網頁應用程式 (Web App)</strong></li>
-                        <li>專案說明：填寫任何名稱</li>
-                        <li>誰可以存取：選取<strong>「所有人」 (Anyone)</strong> (此選項非常重要，否則網頁無法傳遞資料)</li>
-                        <li>部署成功後，複製畫面上產生的<strong>「網頁應用程式網址 (Web App URL)」</strong>並貼在下方設定欄。</li>
-                    </ul>
-                </div>
-
-                <!-- API URL Setup Form -->
-                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200">
-                    <label class="block text-sm font-semibold text-slate-800 mb-2" for="googleAppUrl">
-                        <i class="fa-solid fa-link text-indigo-600 mr-1"></i> 網頁應用程式 URL (Web App URL)
-                    </label>
-                    <input type="url" id="googleAppUrl" placeholder="https://script.google.com/macros/s/AKfycbypZHCJCwncjbNUxR3IQdQXSciRdJI5wvTcSMo2k28FlfwhQ5fh8CE73xvPayZ3nF04iA/exec"
-                        class="w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition text-xs font-mono">
-                    <p class="text-xs text-slate-400 mt-2">※ 填寫後將儲存於您的瀏覽器記憶體中，每次填寫領據即可直接提交。</p>
-                </div>
-            </div>
-
-            <!-- Modal Footer -->
-            <div class="bg-slate-50 px-6 py-4 border-t border-slate-100 flex justify-end gap-2">
-                <button onclick="toggleSettingsModal()" class="bg-slate-200 hover:bg-slate-300 text-slate-700 px-4 py-2 rounded-lg text-sm font-semibold transition">
-                    關閉並返回
-                </button>
-                <button onclick="saveSettings()" class="bg-indigo-600 hover:bg-indigo-700 text-white px-4 py-2 rounded-lg text-sm font-semibold transition">
-                    儲存網址設定
-                </button>
-            </div>
-        </div>
-    </div>
-
     <!-- Scripts & Program Logic -->
     <script>
-        // Default Settings
-        let googleScriptUrl = "";
+        // 綁定指定之 Google 試算表 Web App (GAS 串接 API 網址)
+        const googleScriptUrl = "https://script.google.com/macros/s/AKfycbysI2mdvF5VrbhMDweT06DkfljVIdbOIbrYW_ANin0cL_InuvvSNzCMu0Bu8OrkpZo4Qg/exec";
         
-        // Load initial setup date as today
+        // 載入預設日期為當天
         const today = new Date();
         document.getElementById('receiptDate').value = today.toISOString().split('T')[0];
 
-        // Signature Pad Setup
+        // 簽名板 Canvas 設定
         const canvas = document.getElementById("sig-canvas");
         const ctx = canvas.getContext("2d");
         ctx.strokeStyle = "#000000";
@@ -452,13 +343,11 @@ function doPost(e) {
         let lastX = 0;
         let lastY = 0;
 
-        // Auto-resize canvas logic for responsive screens
+        // 自適應 Canvas 解析度調整
         function resizeCanvas() {
-            // Keep the visual and coordinate dimensions aligned
             const rect = canvas.getBoundingClientRect();
             canvas.width = rect.width;
-            canvas.height = 150; // Keep height fixed
-            // Set pen details again after canvas resize
+            canvas.height = 150; // 固定簽名板高度
             ctx.strokeStyle = "#000000";
             ctx.lineWidth = 2.5;
             ctx.lineCap = "round";
@@ -468,11 +357,10 @@ function doPost(e) {
         window.addEventListener('resize', resizeCanvas);
         window.addEventListener('DOMContentLoaded', () => {
             resizeCanvas();
-            loadSettings();
             updatePreview();
         });
 
-        // Mouse and touch bindings for Signature Canvas
+        // 取得滑鼠或觸控之精確點位
         function getPos(e) {
             const rect = canvas.getBoundingClientRect();
             if (e.touches && e.touches.length > 0) {
@@ -545,7 +433,7 @@ function doPost(e) {
             prevImg.classList.remove("hidden");
         }
 
-        // Convert number to Traditional Chinese Financial Numerals
+        // 轉換數字為繁體國字會計大寫
         function getChineseNumber(num) {
             if (num === 0) return "零";
             const cnNums = ["零", "壹", "貳", "參", "肆", "伍", "陸", "柒", "捌", "玖"];
@@ -565,7 +453,6 @@ function doPost(e) {
                 if (digit !== 0) {
                     result += cnNums[digit] + cnUnits[unitPos];
                 } else {
-                    // Avoid duplicate "零" and "零" at the end of groups
                     if (result !== "" && result[result.length - 1] !== "零" && unitPos !== 0) {
                         result += "零";
                     }
@@ -586,7 +473,7 @@ function doPost(e) {
             return result === "" ? "零" : result;
         }
 
-        // Calculate Fees
+        // 自動加總出席與交通費用
         function calculateTotal() {
             const attendance = parseInt(document.getElementById('attendanceFee').value) || 0;
             const transport = parseInt(document.getElementById('transportFee').value) || 0;
@@ -596,16 +483,99 @@ function doPost(e) {
             updatePreview();
         }
 
-        // Live update the right receipt preview panel
+        /**
+         * 台灣身分證字號與統一證號即時檢核邏輯
+         * 支援：
+         * 1. 國民身分證 (1位字母, 9位數字, 第二位性別碼為 1或 2)
+         * 2. 新式外來人口統一證號 (1位字母, 9位數字, 第二位為 8或 9)
+         * 3. 舊式外來人口統一證號 (1位字母, 1位字母 A-D, 8位數字)
+         */
+        function validateTaiwanID(id) {
+            id = id.trim().toUpperCase();
+            if (id.length !== 10) return false;
+            
+            const letterMap = {
+                'A': 10, 'B': 11, 'C': 12, 'D': 13, 'E': 14, 'F': 15, 'G': 16, 'H': 17, 'I': 34,
+                'J': 18, 'K': 19, 'L': 20, 'M': 21, 'N': 22, 'O': 35, 'P': 23, 'Q': 24, 'R': 25,
+                'S': 26, 'T': 27, 'U': 28, 'V': 29, 'W': 32, 'X': 30, 'Y': 31, 'Z': 33
+            };
+            
+            const firstLetterCode = letterMap[id[0]];
+            if (!firstLetterCode) return false;
+            
+            const x1 = Math.floor(firstLetterCode / 10);
+            const x2 = firstLetterCode % 10;
+            
+            let sum = x1 + 9 * x2;
+            
+            const secondChar = id[1];
+            if (isNaN(secondChar)) {
+                // 舊式統一證號：第二位為英文 (A-D)
+                const secondLetterCode = letterMap[secondChar];
+                if (!secondLetterCode) return false;
+                sum += 8 * (secondLetterCode % 10);
+            } else {
+                sum += 8 * parseInt(secondChar, 10);
+            }
+            
+            // 第三至第九位數字，權重由 7 遞減至 1
+            for (let i = 2; i < 9; i++) {
+                sum += (9 - i) * parseInt(id[i], 10);
+            }
+            
+            // 加上最後一位檢核碼
+            sum += parseInt(id[9], 10);
+            
+            return sum % 10 === 0;
+        }
+
+        function handleIdInput() {
+            const input = document.getElementById('idNumber');
+            input.value = input.value.toUpperCase(); // 自動轉大寫
+            const val = input.value.trim();
+            const msgEl = document.getElementById('idValidationMsg');
+            
+            if (!val) {
+                msgEl.className = "text-xs mt-1 font-medium text-slate-400";
+                msgEl.textContent = "※ 必填。外籍委員請輸入護照號碼。";
+                msgEl.classList.remove('hidden');
+                input.className = "w-full px-3 py-2 border border-slate-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition uppercase";
+                updatePreview();
+                return;
+            }
+            
+            // 判斷是否符合台灣證號規格特徵 (英文字母開頭，第二位是數字或 A-D 字母，後面接著 8 碼數字)
+            const twIdPattern = /^[A-Z][1289A-D]\d{8}$/;
+            
+            if (twIdPattern.test(val)) {
+                const isValid = validateTaiwanID(val);
+                if (isValid) {
+                    msgEl.className = "text-xs mt-1 font-medium text-emerald-600 flex items-center gap-1";
+                    msgEl.innerHTML = '<i class="fa-solid fa-circle-check"></i> 格式符合中華民國身分證 / 統一證號';
+                    input.className = "w-full px-3 py-2 border border-emerald-500 rounded-lg focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition uppercase";
+                } else {
+                    msgEl.className = "text-xs mt-1 font-medium text-rose-600 flex items-center gap-1";
+                    msgEl.innerHTML = '<i class="fa-solid fa-circle-xmark"></i> 格式不符或驗證碼錯誤，請重新核對！';
+                    input.className = "w-full px-3 py-2 border border-rose-500 rounded-lg focus:ring-2 focus:ring-rose-500 focus:border-rose-500 outline-none transition uppercase";
+                }
+            } else {
+                // 不符合台灣身分證之形式，自動判定為「外籍護照」
+                msgEl.className = "text-xs mt-1 font-medium text-amber-600 flex items-center gap-1";
+                msgEl.innerHTML = '<i class="fa-solid fa-circle-info"></i> 非本國身分證格式，系統已自動判定為「外籍護照」格式';
+                input.className = "w-full px-3 py-2 border border-amber-500 rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-amber-500 outline-none transition uppercase";
+            }
+            
+            updatePreview();
+        }
+
+        // 即時同步更新右側領據 A4 預覽畫面
         function updatePreview() {
             const name = document.getElementById('payeeName').value || "＿＿＿＿";
             const summaryTemplate = document.getElementById('summary').value || "ＯＯＯ之委員出席費及交通費。";
             
-            // Replace placeholder inside Summary
             const customizedSummary = summaryTemplate.replace(/ＯＯＯ|OOO/g, name);
             document.getElementById('prevSummary').textContent = customizedSummary;
 
-            // Update Fee Text
             const attendance = parseInt(document.getElementById('attendanceFee').value) || 0;
             const transport = parseInt(document.getElementById('transportFee').value) || 0;
             const total = attendance + transport;
@@ -614,12 +584,10 @@ function doPost(e) {
             document.getElementById('prevTransport').textContent = transport.toLocaleString();
             document.getElementById('prevTotalChinese').textContent = getChineseNumber(total);
 
-            // Update Payee Info
             document.getElementById('prevIdNumber').textContent = document.getElementById('idNumber').value || "＿＿＿＿＿＿＿＿＿＿";
             document.getElementById('prevAddress').textContent = document.getElementById('address').value || "＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿＿";
             document.getElementById('prevPhone').textContent = document.getElementById('phone').value || "＿＿＿＿＿＿＿＿＿＿";
 
-            // Update date into Minguo (Taiwan) Calendar
             const dateVal = document.getElementById('receiptDate').value;
             if (dateVal) {
                 const dateObj = new Date(dateVal);
@@ -637,12 +605,12 @@ function doPost(e) {
             }
         }
 
-        // Submit Form to Google Sheet via Web App (Apps Script API)
+        // 透過 Web App 將領據資料送出至 Google 試算表
         async function submitToGoogleSheet() {
             const btn = document.getElementById('btnSubmit');
             const status = document.getElementById('statusMessage');
             
-            // Standard form validation check
+            // 基本表單必填項驗證
             const name = document.getElementById('payeeName').value;
             const idNumber = document.getElementById('idNumber').value;
             const phone = document.getElementById('phone').value;
@@ -653,20 +621,25 @@ function doPost(e) {
                 return;
             }
 
-            // Simple Canvas validation (check if anything is drawn or if the user is using the image placeholder)
+            // 針對台灣證號基本特徵的輸入進行嚴格防錯
+            const val = idNumber.toUpperCase().trim();
+            const twIdPattern = /^[A-Z][1289A-D]\d{8}$/;
+            if (twIdPattern.test(val)) {
+                const isIdValid = validateTaiwanID(val);
+                if (!isIdValid) {
+                    showStatus("身分證字號格式驗證錯誤，請修正後再提交！", "error");
+                    return;
+                }
+            }
+
+            // 確保簽名欄位不為空
             const isCanvasEmpty = isSignatureEmpty();
             if (isCanvasEmpty) {
                 showStatus("請在簽名區簽名後再點擊寫入試算表！", "error");
                 return;
             }
 
-            if (!googleScriptUrl) {
-                showStatus("尚未設定 Google 試算表 Web App 網址。請點選上方「Google 試算表設定」設定它！", "warning");
-                toggleSettingsModal();
-                return;
-            }
-
-            // Prepare Payload
+            // 封裝 JSON Payload 資料
             const attendance = parseInt(document.getElementById('attendanceFee').value) || 0;
             const transport = parseInt(document.getElementById('transportFee').value) || 0;
             const total = attendance + transport;
@@ -688,23 +661,22 @@ function doPost(e) {
                 signature: signatureBase64
             };
 
-            // Loading state UI
+            // 啟動傳送中 UI 狀態
             btn.disabled = true;
             btn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> 正在傳送資料至 Google Sheet...`;
             showStatus("正在連線至雲端試算表，請稍候...", "info");
 
             try {
+                // 使用 no-cors 模式呼叫 Google 網頁應用程式
                 const response = await fetch(googleScriptUrl, {
                     method: 'POST',
-                    mode: 'no-cors', // Standard cross-origin POST for Google Apps Script Web Apps
+                    mode: 'no-cors',
                     headers: {
                         'Content-Type': 'application/json'
                     },
                     body: JSON.stringify(payload)
                 });
 
-                // With mode 'no-cors', response object has limited info (opaque response)
-                // We show standard success if fetch succeeds.
                 showStatus("恭喜！領據資料已成功寫入 Google 試算表中！", "success");
             } catch (err) {
                 console.error("Submission Error:", err);
@@ -715,16 +687,15 @@ function doPost(e) {
             }
         }
 
-        // Check if canvas has drawing content
+        // 偵測簽名板是否完全空白
         function isSignatureEmpty() {
-            // Standard approach: check if there is non-transparent pixel in canvas
             const blank = document.createElement('canvas');
             blank.width = canvas.width;
             blank.height = canvas.height;
             return canvas.toDataURL() === blank.toDataURL();
         }
 
-        // Show standard in-app feedback alerts
+        // 狀態通知顯示器
         function showStatus(msg, type) {
             const status = document.getElementById('statusMessage');
             status.className = "text-center text-sm p-3 rounded-xl block font-medium";
@@ -741,55 +712,8 @@ function doPost(e) {
             }
         }
 
-        // Save & Load URL local helpers
-        function toggleSettingsModal() {
-            const modal = document.getElementById('settingsModal');
-            modal.classList.toggle('hidden');
-        }
-
-        function saveSettings() {
-            const urlInput = document.getElementById('googleAppUrl').value.trim();
-            if (urlInput && !urlInput.startsWith('https://script.google.com')) {
-                alert('請輸入正確的 Google Apps Script Web App URL！');
-                return;
-            }
-            googleScriptUrl = urlInput;
-            
-            // Try to store locally (with try catch fallback to keep single-session state functional)
-            try {
-                localStorage.setItem('google_receipt_script_url', urlInput);
-            } catch(e) {}
-
-            toggleSettingsModal();
-            showStatus("已更新 Google 試算表連線設定！", "success");
-        }
-
-        function loadSettings() {
-            try {
-                const saved = localStorage.getItem('google_receipt_script_url');
-                if (saved) {
-                    googleScriptUrl = saved;
-                    document.getElementById('googleAppUrl').value = saved;
-                }
-            } catch(e) {}
-        }
-
-        function copyAppsScriptCode() {
-            const code = document.getElementById('codeBlock').textContent;
-            // Best browser fallback for copying text
-            const dummy = document.createElement("textarea");
-            document.body.appendChild(dummy);
-            dummy.value = code;
-            dummy.select();
-            document.execCommand("copy");
-            document.body.removeChild(dummy);
-            
-            alert("Apps Script 程式碼複製成功！可以貼上至 Google 專案中。");
-        }
-
-        // Print function
+        // 列印呼叫
         function printReceipt() {
-            // Direct browser to open native print dialog focused on print CSS styling
             window.print();
         }
     </script>
